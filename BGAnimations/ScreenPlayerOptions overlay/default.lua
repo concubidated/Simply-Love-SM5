@@ -15,50 +15,8 @@ local speedmod_def = {
 	M = { upper=2000, increment=5 }
 }
 
-local song = GAMESTATE:GetCurrentSong()
-
 ------------------------------------------------------------
 -- functions local to this file
-
--- this prepares and returns a string to be used by the helper BitmapText
--- that shows players their effective scrollspeed
-
-local CalculateScrollSpeed = function(player)
-	player   = player or GAMESTATE:GetMasterPlayerNumber()
-	local pn = ToEnumShortString(player)
-
-	local StepsOrTrail = (GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentTrail(player)) or GAMESTATE:GetCurrentSteps(player)
-	local MusicRate    = SL.Global.ActiveModifiers.MusicRate or 1
-
-	local SpeedModType = SL[pn].ActiveModifiers.SpeedModType
-	local SpeedMod     = SL[pn].ActiveModifiers.SpeedMod
-
-	local bpms = GetDisplayBPMs(player, StepsOrTrail, MusicRate)
-	if not (bpms and bpms[1] and bpms[2]) then return "" end
-
-	if SpeedModType=="X" then
-		bpms[1] = bpms[1] * SpeedMod
-		bpms[2] = bpms[2] * SpeedMod
-
-	elseif SpeedModType=="M" then
-		bpms[1] = bpms[1] * (SpeedMod/bpms[2])
-		bpms[2] = SpeedMod
-
-	elseif SpeedModType=="C" then
-		bpms[1] = SpeedMod
-		bpms[2] = SpeedMod
-	end
-
-	-- format as strings
-	bpms[1] = ("%.0f"):format(bpms[1])
-	bpms[2] = ("%.0f"):format(bpms[2])
-
-	if bpms[1] == bpms[2] then
-		return bpms[1]
-	end
-
-	return ("%s-%s"):format(bpms[1], bpms[2])
-end
 
 -- use this to directly manipulate the SpeedMod numbers in the global SL table
 --    first argument is either "P1" or "P2"
@@ -103,10 +61,9 @@ end
 local SpeedModBMTs = {}
 
 local t = Def.ActorFrame{
-	InitCommand=function(self) self:xy(_screen.cx,0) end,
-	OnCommand=function(self) self:queuecommand("Capture") end,
 	OffCommand=function(self) self:linear(0.2):diffusealpha(0) end,
-	CaptureCommand=function(self)
+
+	OnCommand=function(self)
 		local ScreenOptions = SCREENMAN:GetTopScreen()
 
 		for player in ivalues( GAMESTATE:GetHumanPlayers() ) do
@@ -144,20 +101,12 @@ local t = Def.ActorFrame{
 	end
 }
 
--- attach NoteSkin actors and Judgment graphic sprites and Combo bitmaptexts to
--- this overlay ActorFrame; they'll each be hidden immediately via visible(false)
--- and referred to as needed via ActorProxy in ./Graphics/OptionRow Frame.lua
-LoadActor("./NoteSkinPreviews.lua", t)
-LoadActor("./JudgmentGraphicPreviews.lua", t)
-LoadActor("./ComboFontPreviews.lua", t)
-
 -- some functionality needed in both PlayerOptions, PlayerOptions2, and PlayerOptions3
 t[#t+1] = LoadActor(THEME:GetPathB("ScreenPlayerOptions", "common"))
 
 
 for player in ivalues(GAMESTATE:GetHumanPlayers()) do
 	local pn = ToEnumShortString(player)
-	local song = GAMESTATE:GetCurrentSong()
 
 	t[#t+1] = Def.Actor{
 
@@ -233,22 +182,6 @@ for player in ivalues(GAMESTATE:GetHumanPlayers()) do
 				ChangeSpeedMod( pn, 1 )
 				self:queuecommand("Set"..pn)
 			end
-		end
-	}
-
-	-- the large block text at the top that shows each player their current scroll speed
-	t[#t+1] = LoadFont("_wendy small")..{
-		Name=pn.."SpeedModHelper",
-		Text="",
-		InitCommand=function(self)
-			self:diffuse(PlayerColor(player)):diffusealpha(0)
-			self:zoom(0.5):y(48)
-			self:x(player==PLAYER_1 and -100 or 150)
-			self:shadowlength(0.55)
-		end,
-		OnCommand=function(self) self:linear(0.4):diffusealpha(1) end,
-		RefreshCommand=function(self)
-			self:settext( ("%s%s"):format(SL[pn].ActiveModifiers.SpeedModType, CalculateScrollSpeed(player)) )
 		end
 	}
 end
